@@ -1,0 +1,41 @@
+name: Refresh latest blog insights
+
+on:
+  schedule:
+    # Korea Standard Time 01:00 = UTC 16:00 on the previous day.
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out published site
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify RSS transformation
+        run: node --test scripts/insights-rss.test.mjs
+
+      - name: Fetch the latest three blog posts
+        run: node scripts/update-insights.mjs
+
+      - name: Publish changed insight data
+        run: |
+          if git diff --quiet -- insights.json; then
+            echo "No published insight changes."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add insights.json
+          git commit -m "chore: refresh latest blog insights"
+          git push
